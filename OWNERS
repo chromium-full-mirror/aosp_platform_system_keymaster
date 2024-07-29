@@ -1,6 +1,1 @@
-drysdale@google.com
-jbires@google.com
-jdanis@google.com
-sethmo@google.com
-swillden@google.com
-zeuthen@google.com
+include chromiumos/platform2:main:/arc/keymint/OWNERS
