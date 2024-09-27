@@ -57,14 +57,15 @@ struct KeyInfo {
     }
 };
 
-// The production root signing key for Google Endpoint Encryption Key cert chains.
+// The production root signing key for Google Endpoint Encryption Key
+// cert chains for P-256.
 inline constexpr uint8_t kGeekRoot[] = {
-    0x99, 0xB9, 0xEE, 0xDD, 0x5E, 0xE4, 0x52, 0xF6, 0x85, 0xC6, 0x4C, 0x62, 0xDC, 0x3E, 0x61, 0xAB,
-    0x57, 0x48, 0x7D, 0x75, 0x37, 0x29, 0xAD, 0x76, 0x80, 0x32, 0xD2, 0xB3, 0xCB, 0x63, 0x58, 0xD9};
+    0xF7, 0x14, 0x8A, 0xDB, 0x97, 0xF4, 0xCC, 0x53, 0xEF, 0xD2, 0x64, 0x11, 0xC4, 0xE3, 0x75, 0x1F,
+    0x66, 0x1F, 0xA4, 0x71, 0x0C, 0x6C, 0xCF, 0xFA, 0x09, 0x46, 0x80, 0x74, 0x87, 0x54, 0xF2, 0xAD};
 
 // Hard-coded set of acceptable public COSE_Keys that can act as roots of EEK chains.
 inline constexpr KeyInfo kAuthorizedEekRoots[] = {
-    {CoseKeyCurve::ED25519, byte_view(kGeekRoot, sizeof(kGeekRoot))},
+    {CoseKeyCurve::P256, byte_view(kGeekRoot, sizeof(kGeekRoot))},
 };
 
 StatusOr<std::pair<std::vector<uint8_t> /* EEK pub */, std::vector<uint8_t> /* EEK ID */>>
@@ -118,7 +119,7 @@ validateAndExtractEekPubAndId(bool testMode, const KeymasterBlob& endpointEncryp
         }
     }
 
-    auto eek = CoseKey::parseX25519(lastPubKey, true /* requireKid */);
+    auto eek = CoseKey::parse(lastPubKey, EC2, ECDH_ES_HKDF_256, P256);
     if (!eek) {
         LOG_E("Failed to get EEK: %s", eek.moveMessage().c_str());
         return kStatusInvalidEek;
