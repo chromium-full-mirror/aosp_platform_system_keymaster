@@ -477,9 +477,14 @@ void AndroidKeymaster::GenerateCsr(const GenerateCsrRequest& request,
         return;
     }
 
-    std::vector<uint8_t> ephemeralPrivKey(X25519_PRIVATE_KEY_LEN);
-    std::vector<uint8_t> ephemeralPubKey(X25519_PUBLIC_VALUE_LEN);
-    X25519_keypair(ephemeralPubKey.data(), ephemeralPrivKey.data());
+    std::vector<uint8_t> ephemeralPrivKey;
+    std::vector<uint8_t> ephemeralPubKey;
+    auto error = GenerateEphemeralEcP256KeyPair(ephemeralPrivKey,
+                                                ephemeralPubKey);
+    if(error != KM_ERROR_OK) {
+        LOG_E("Failed to generate ephemeral EC P256 Key pair", 0);
+        return;
+    }
 
     auto eek = validateAndExtractEekPubAndId(request.test_mode, request.endpoint_enc_cert_chain);
     if (!eek.isOk()) {
@@ -489,7 +494,10 @@ void AndroidKeymaster::GenerateCsr(const GenerateCsrRequest& request,
     }
 
     auto sessionKey =
-        x25519_HKDF_DeriveKey(ephemeralPubKey, ephemeralPrivKey, eek->first, true /* senderIsA */);
+        cppcose::ECDH_HKDF_DeriveKey(ephemeralPubKey,
+                                     ephemeralPrivKey,
+                                     eek->first,
+                                     true /* senderIsA */);
     if (!sessionKey) {
         LOG_E("Failed to derive the session key.", 0);
         response->error = static_cast<keymaster_error_t>(kStatusFailed);

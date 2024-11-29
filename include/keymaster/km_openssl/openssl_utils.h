@@ -100,6 +100,11 @@ keymaster_error_t EvpKeyToKeyMaterial(const EVP_PKEY* evp_pkey, KeymasterKeyBlob
 keymaster_error_t GetEcdsa256KeyFromCert(const keymaster_blob_t* km_cert, uint8_t* x_coord,
                                          size_t x_length, uint8_t* y_coord, size_t y_length);
 
+// Generates an ephemeral EC P-256 key pair and returns the public key and
+// private key. The public key is 64 bytes without the 0x04 prefix.
+keymaster_error_t GenerateEphemeralEcP256KeyPair(std::vector<uint8_t>& private_key,
+                                            std::vector<uint8_t>& public_key);
+
 size_t ec_group_size_bits(EC_KEY* ec_key);
 
 keymaster_error_t GenerateRandom(uint8_t* buf, size_t length);

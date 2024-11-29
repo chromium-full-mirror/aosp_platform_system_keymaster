@@ -16,6 +16,8 @@
 
 #include <keymaster/km_openssl/openssl_utils.h>
 
+#include <vector>
+
 #include <keymaster/android_keymaster_utils.h>
 #include <openssl/mem.h>
 #include <openssl/rand.h>
@@ -25,6 +27,9 @@
 namespace keymaster {
 
 constexpr uint32_t kAffinePointLength = 32;
+constexpr uint32_t kP256EcdsaPrivateKeyLength = 32;
+constexpr uint32_t kP256EcdsaPrivatePublicKeyConcatenatedLength =
+                                kAffinePointLength + kAffinePointLength;
 
 keymaster_error_t ec_get_group_size(const EC_GROUP* group, size_t* key_size_bits) {
     switch (EC_GROUP_get_curve_name(group)) {
@@ -203,6 +208,73 @@ size_t ec_group_size_bits(EC_KEY* ec_key) {
 keymaster_error_t GenerateRandom(uint8_t* buf, size_t length) {
     if (RAND_bytes(buf, length) != 1) return KM_ERROR_UNKNOWN_ERROR;
     return KM_ERROR_OK;
+}
+
+keymaster_error_t GenerateEphemeralEcP256KeyPair(
+    std::vector<uint8_t>& private_key,
+    std::vector<uint8_t>& public_key) {
+
+  // Resize the vectors to the appropriate sizes
+  private_key.resize(kP256EcdsaPrivateKeyLength);
+  public_key.resize(kP256EcdsaPrivatePublicKeyConcatenatedLength);
+
+  // EC Group Setup.
+  bssl::UniquePtr<EC_GROUP> group(
+      EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1));
+  if (!group) {
+    return ::keymaster::TranslateLastOpenSslError();
+  }
+
+  // Key creation.
+  bssl::UniquePtr<EC_KEY> ec_key(EC_KEY_new());
+  if (!ec_key) {
+    return ::keymaster::TranslateLastOpenSslError();
+  }
+
+  // Set Group.
+  if (EC_KEY_set_group(ec_key.get(), group.get()) != 1) {
+    return ::keymaster::TranslateLastOpenSslError();
+  }
+
+  // Generate EC Keypair.
+  if (EC_KEY_generate_key(ec_key.get()) != 1) {
+    return ::keymaster::TranslateLastOpenSslError();
+  }
+
+  const BIGNUM* priv_key = EC_KEY_get0_private_key(ec_key.get());
+  if (!priv_key) {
+    return ::keymaster::TranslateLastOpenSslError();
+  }
+
+  // Extract Public Key.
+  const EC_POINT* pub_key = EC_KEY_get0_public_key(ec_key.get());
+  if (!pub_key) {
+    return ::keymaster::TranslateLastOpenSslError();
+  }
+
+  bssl::UniquePtr<BN_CTX> ctx(BN_CTX_new());
+  if (!ctx) {
+    return ::keymaster::TranslateLastOpenSslError();
+  }
+  bssl::UniquePtr<BIGNUM> x(BN_new());
+  bssl::UniquePtr<BIGNUM> y(BN_new());
+  if (!EC_POINT_get_affine_coordinates_GFp(group.get(), pub_key, x.get(),
+                                           y.get(), ctx.get())) {
+    return ::keymaster::TranslateLastOpenSslError();
+  }
+
+  // Concatenate X and Y coordinates directly.
+  if (BN_bn2binpad(x.get(), public_key.data(), kAffinePointLength) != kAffinePointLength ||
+      BN_bn2binpad(y.get(), public_key.data() + kAffinePointLength, kAffinePointLength) != kAffinePointLength) {
+    return ::keymaster::TranslateLastOpenSslError();
+  }
+
+  // Extract Private Key.
+  if (BN_bn2binpad(priv_key, private_key.data(), private_key.size()) == -1) {
+    return ::keymaster::TranslateLastOpenSslError();
+  }
+
+  return KM_ERROR_OK;
 }
 
 }  // namespace keymaster
