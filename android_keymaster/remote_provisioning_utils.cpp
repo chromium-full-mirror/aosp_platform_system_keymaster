@@ -45,6 +45,9 @@ using cppcose::verifyAndParseCoseSign1;
 
 using byte_view = std::span<const uint8_t>;
 
+constexpr uint32_t kAffinePointLength = 32;
+constexpr uint32_t kUncompressedECPubKeyWithoutPrefixSize = 64;
+
 struct KeyInfo {
     CoseKeyCurve curve;
     byte_view pubkey;
@@ -206,6 +209,16 @@ validateAndExtractPubkeys(bool testMode, uint32_t numKeys, KeymasterBlob* keysTo
 
 cppbor::Array buildCertReqRecipients(const std::vector<uint8_t>& pubkey,
                                      const std::vector<uint8_t>& kid) {
+    // EC P-256 Public key here should be concatenated X & Y coordinates of the
+    // key, without the 1 byte for the header.
+    if(pubkey.size() != kUncompressedECPubKeyWithoutPrefixSize) {
+        LOG_E("Size of EEK public key is not 64 bytes", 0);
+        return cppbor::Array();
+    }
+
+    std::vector<uint8_t> xCoord(pubkey.begin(), pubkey.begin()+kAffinePointLength);
+    std::vector<uint8_t> yCoord(pubkey.begin()+kAffinePointLength, pubkey.end());
+
     return cppbor::Array()           // Array of recipients
         .add(cppbor::Array()         // Recipient
                  .add(cppbor::Map()  // Protected
@@ -214,9 +227,10 @@ cppbor::Array buildCertReqRecipients(const std::vector<uint8_t>& pubkey,
                           .encode())
                  .add(cppbor::Map()  // Unprotected
                           .add(COSE_KEY, cppbor::Map()
-                                             .add(CoseKey::KEY_TYPE, OCTET_KEY_PAIR)
-                                             .add(CoseKey::CURVE, cppcose::X25519)
-                                             .add(CoseKey::PUBKEY_X, pubkey)
+                                             .add(CoseKey::KEY_TYPE, EC2)
+                                             .add(CoseKey::CURVE, cppcose::P256)
+                                             .add(CoseKey::PUBKEY_X, xCoord)
+                                             .add(CoseKey::PUBKEY_Y, yCoord)
                                              .canonicalize())
                           .add(KEY_ID, kid)
                           .canonicalize())
