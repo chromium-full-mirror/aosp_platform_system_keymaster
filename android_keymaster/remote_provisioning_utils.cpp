@@ -125,7 +125,17 @@ validateAndExtractEekPubAndId(bool testMode, const KeymasterBlob& endpointEncryp
         return kStatusInvalidEek;
     }
 
-    return std::make_pair(eek->getBstrValue(CoseKey::PUBKEY_X).value(),
+    // Extract the X and Y coordinates of the eek EC P-256 public key.
+    auto eekPubKeyX = eek->getBstrValue(CoseKey::PUBKEY_X).value();
+    auto eekPubKeyY = eek->getBstrValue(CoseKey::PUBKEY_Y).value();
+
+    // Construct the uncompressed public key without the 0x04 prefix.
+    // |eekPublicKey| contains the concatenated X and Y coordinates.
+    std::vector<uint8_t> eekPublicKey;
+    eekPublicKey.insert(eekPublicKey.end(), eekPubKeyX.begin(), eekPubKeyX.end());
+    eekPublicKey.insert(eekPublicKey.end(), eekPubKeyY.begin(), eekPubKeyY.end());
+
+    return std::make_pair(eekPublicKey,
                           eek->getBstrValue(CoseKey::KEY_ID).value());
 }
 
