@@ -22,6 +22,7 @@
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
 #include <openssl/x509.h>
+#include <vector>
 
 #include <keymaster/UniquePtr.h>
 #include <keymaster/authorization_set.h>
