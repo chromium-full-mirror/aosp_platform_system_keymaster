@@ -16,6 +16,7 @@
 
 #include <keymaster/pure_soft_secure_key_storage.h>
 
+#include <new>
 #include <vector>
 
 #include <keymaster/logger.h>
